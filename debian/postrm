@@ -1,0 +1,15 @@
+#!/bin/sh
+# dpkg removes /usr/lib/claude-code/claude itself -- it owns that path, and
+# overwriting the stub with the downloaded binary does not change that. What
+# is left to do is the directory, which only has anything in it mid-download.
+set -e
+
+case "$1" in
+  remove | purge)
+    rm -f /usr/lib/claude-code/claude.dpkg-new-download \
+      /usr/lib/claude-code/claude.dpkg-new-download.zst
+    rmdir --ignore-fail-on-non-empty /usr/lib/claude-code 2> /dev/null || true
+    ;;
+esac
+
+#DEBHELPER#

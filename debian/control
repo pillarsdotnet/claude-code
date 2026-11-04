@@ -1,0 +1,38 @@
+Source: claude-code
+Section: devel
+Priority: optional
+Maintainer: Robert August Vincent II (Bob) <pillarsdotnet@gmail.com>
+Build-Depends:
+ debhelper-compat (= 13),
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://code.claude.com/docs
+
+Package: claude-code
+Architecture: all
+Depends:
+ ca-certificates,
+ curl | wget,
+ zstd,
+ ${misc:Depends},
+Recommends:
+ git,
+ ripgrep,
+Suggests:
+ bubblewrap,
+Description: agentic coding tool for the terminal
+ Claude Code runs in a terminal, reads and edits a project in place, runs
+ the commands a change needs and drives git, taking its instructions in
+ prose. It signs in to an Anthropic account and does its work by calling
+ the Claude models over the network.
+ .
+ Anthropic publishes no Debian package and licenses the program under terms
+ that grant no right to redistribute it, so this package ships none of it.
+ It records the release to install and the SHA-256 of every build of that
+ release; its postinst downloads the build matching the machine's
+ architecture from Anthropic's own download service, checks it against the
+ recorded digest and installs it as /usr/lib/claude-code/claude. Installing
+ therefore needs network access.
+ .
+ Claude Code recognises an installation that dpkg owns and turns its own
+ updater off, leaving the version to apt.

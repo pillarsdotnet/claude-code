@@ -1,0 +1,11 @@
+#!/bin/sh
+# Shipped in the claude-code package at the path the real binary occupies, so
+# that dpkg owns that path: Claude Code decides it is managed by a package
+# manager, and turns its own updater off, by asking "dpkg -S" who owns the
+# executable it is running from. The postinst downloads the release the
+# package names and overwrites this file; reaching this message means that
+# download has not succeeded.
+echo "claude-code: the Claude Code binary has not been downloaded." >&2
+echo "Run 'sudo apt-get install --reinstall claude-code' on a machine with" >&2
+echo "network access to fetch it." >&2
+exit 1

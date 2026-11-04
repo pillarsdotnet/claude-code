@@ -1,0 +1,83 @@
+#!/bin/bash
+# Copyright (c) 2026 Robert August Vincent II <pillarsdotnet@gmail.com>
+# Co-author: Claude Code.
+#
+# Point the packaging at an upstream Claude Code release: rewrite
+# debian/upstream-sha256 from Anthropic's manifests and debian/changelog to
+# name the release. With no argument it takes whatever the "stable" channel
+# currently names.
+#
+# Usage: ./refresh-upstream [stable|latest|VERSION]
+#
+# Changes nothing and exits 0 when the tree already names that release, so the
+# scheduled workflow can run it unconditionally and commit only when there is
+# something to commit.
+#
+# The changelog is rewritten rather than appended to. It holds one entry
+# because the package holds no code of its own: the entry says which upstream
+# release the postinst fetches, and git history is the log of how that
+# changed. dch is deliberately not used -- it merges a new version into an
+# existing UNRELEASED entry instead of replacing it, so bumping through dch
+# would accumulate a bullet per release forever.
+#
+# Needs curl and jq.
+set -euo pipefail
+
+BASE="${CLAUDE_CODE_DOWNLOAD_BASE:-https://downloads.claude.ai/claude-code-releases}"
+MAINTAINER="Robert August Vincent II (Bob) <pillarsdotnet@gmail.com>"
+PLATFORMS="linux-x64 linux-arm64"
+want="${1:-stable}"
+
+cd "$(dirname "$0")"
+
+case "$want" in
+  stable | latest) version="$(curl -fsSL "$BASE/$want")" ;;
+  *) version="$want" ;;
+esac
+
+# A channel that is unreachable, or blocked by region, serves an HTML error
+# page rather than an HTTP error, which would otherwise be written into the
+# changelog as a version.
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  echo "refresh-upstream: '$BASE/$want' did not name a version" >&2
+  exit 1
+fi
+
+current="$(dpkg-parsechangelog -SVersion 2>/dev/null | sed 's/-[^-]*$//' || true)"
+if [ "$version" = "$current" ]; then
+  exit 0
+fi
+
+bin_manifest="$(curl -fsSL "$BASE/$version/manifest.json")"
+zst_manifest="$(curl -fsSL "$BASE/$version/manifest.zst.json")"
+
+{
+  echo "# Claude Code $version, from $BASE."
+  echo "# Written by ./refresh-upstream; one line per platform this package"
+  echo "# installs on:"
+  echo "#"
+  echo "#   <platform> <bytes of the binary> <sha256 of the binary> <sha256 of claude.zst>"
+  echo "#"
+  echo "# The postinst fetches <platform>/claude.zst, checks it against the"
+  echo "# fourth field, decompresses it, truncates it to the second and checks"
+  echo "# that against the third. Anthropic's own installer truncates the same"
+  echo "# way, so the compressed stream is not assumed to end where the binary"
+  echo "# does."
+  for platform in $PLATFORMS; do
+    size="$(jq -re ".platforms[\"$platform\"].size" <<<"$bin_manifest")"
+    bin_sum="$(jq -re ".platforms[\"$platform\"].checksum" <<<"$bin_manifest")"
+    zst_sum="$(jq -re ".platforms[\"$platform\"].checksum" <<<"$zst_manifest")"
+    echo "$platform $size $bin_sum $zst_sum"
+  done
+} > debian/upstream-sha256
+
+cat > debian/changelog <<EOF
+claude-code ($version-1) UNRELEASED; urgency=medium
+
+  * Install the upstream $version release. The series version suffix is added
+    at build time by .forgejo/registry-upload and never committed.
+
+ -- $MAINTAINER  $(date -R)
+EOF
+
+echo "refresh-upstream: now at $version (was ${current:-nothing})" >&2

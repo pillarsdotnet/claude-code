@@ -1,0 +1,111 @@
+#!/bin/sh
+# Download the Claude Code release this package names and put it at the path
+# the package's stub occupies. The package ships no upstream code: Anthropic
+# licenses Claude Code under terms that grant no right to redistribute it.
+#
+# Writing the binary over a path dpkg already owns is the point of the stub,
+# not an accident. Claude Code asks "dpkg -S" who owns the executable it is
+# running from, and dpkg answers from its own file list rather than from the
+# file, so ownership survives the overwrite: Claude Code sees an installation
+# a package manager owns and turns its own updater off. Installing the binary
+# anywhere dpkg does not own would instead leave it updating itself in place,
+# under root, behind apt's back.
+#
+# Set CLAUDE_CODE_NO_DOWNLOAD=1 to configure the package without downloading
+# -- for building an image offline, where the fetch happens on first boot via
+# "apt-get install --reinstall claude-code".
+set -e
+
+BASE="${CLAUDE_CODE_DOWNLOAD_BASE:-https://downloads.claude.ai/claude-code-releases}"
+DIGESTS=/usr/share/claude-code/upstream-sha256
+TARGET=/usr/lib/claude-code/claude
+TMP="$TARGET.dpkg-new-download"
+
+case "$1" in
+  configure) ;;
+  *) exit 0 ;;
+esac
+
+if [ -n "${CLAUDE_CODE_NO_DOWNLOAD:-}" ]; then
+  echo "claude-code: CLAUDE_CODE_NO_DOWNLOAD is set; leaving the binary unfetched." >&2
+  exit 0
+fi
+
+version="$(cat /usr/share/claude-code/version)"
+
+# Both Ubuntu architectures the registry serves; a foreign architecture gets a
+# clear failure rather than a binary for the wrong machine.
+case "$(dpkg --print-architecture)" in
+  amd64) platform=linux-x64 ;;
+  arm64) platform=linux-arm64 ;;
+  *)
+    echo "claude-code: Anthropic publishes no Claude Code build for $(dpkg --print-architecture)." >&2
+    exit 1
+    ;;
+esac
+
+read -r size bin_sum zst_sum <<EOF
+$(awk -v p="$platform" '$1 == p { print $2, $3, $4; exit }' "$DIGESTS")
+EOF
+if [ -z "$zst_sum" ]; then
+  echo "claude-code: $DIGESTS has no line for $platform." >&2
+  exit 1
+fi
+
+# An already-correct binary survives a reconfigure untouched. On an upgrade
+# dpkg has just unpacked the stub over it, so this does not short-circuit the
+# fetch of a new release.
+verifies() {
+  [ -s "$1" ] && echo "$2  $1" | sha256sum --status -c -
+}
+
+if verifies "$TARGET" "$bin_sum"; then
+  exit 0
+fi
+
+fetch() {
+  if command -v curl > /dev/null 2>&1; then
+    curl -fsSL --retry 3 --retry-delay 2 -o "$2" "$1"
+  else
+    wget -q -O "$2" "$1"
+  fi
+}
+
+cleanup() {
+  rm -f "$TMP" "$TMP.zst"
+}
+trap cleanup EXIT
+
+echo "claude-code: fetching Claude Code $version for $platform..." >&2
+
+# The compressed stream is a third of the binary's size, so it is tried first.
+# It is truncated to the length the manifest records before being checked,
+# because Anthropic's own installer truncates it the same way and so cannot be
+# assumed to end where the binary does.
+ok=false
+if command -v zstd > /dev/null 2>&1 \
+  && fetch "$BASE/$version/$platform/claude.zst" "$TMP.zst" \
+  && verifies "$TMP.zst" "$zst_sum"; then
+  zstd -d -q -c "$TMP.zst" 2> /dev/null | head -c "$size" > "$TMP" || true
+  if verifies "$TMP" "$bin_sum"; then
+    ok=true
+  else
+    echo "claude-code: the decompressed binary failed its digest; refetching uncompressed." >&2
+  fi
+fi
+rm -f "$TMP.zst"
+
+if [ "$ok" = false ]; then
+  fetch "$BASE/$version/$platform/claude" "$TMP"
+  if ! verifies "$TMP" "$bin_sum"; then
+    echo "claude-code: the download does not match the digest recorded for Claude Code $version" >&2
+    echo "on $platform. Refusing to install it." >&2
+    exit 1
+  fi
+fi
+
+chmod 0755 "$TMP"
+mv -f "$TMP" "$TARGET"
+echo "claude-code: installed Claude Code $version at $TARGET." >&2
+
+#DEBHELPER#

@@ -1,0 +1,28 @@
+#! /usr/bin/make -f
+# Build a package that carries no upstream code: a stub at the path the binary
+# will occupy, the digests the postinst checks a download against, and the
+# version it fetches. debian/changelog names the release and
+# debian/upstream-sha256 holds its digests, so moving to a new release is one
+# commit touching those two files -- ./refresh-upstream writes both.
+include /usr/share/dpkg/pkg-info.mk
+
+D = debian/claude-code
+V = $(DEB_VERSION_UPSTREAM)
+
+%:
+	dh $@
+
+# Nothing is downloaded at build time; the digests must simply belong to the
+# release the changelog names. refresh-upstream writes both files together, so
+# a mismatch here means one of them was edited by hand.
+override_dh_auto_build:
+	grep -qx '# Claude Code $(V), from .*\.' debian/upstream-sha256 \
+	  || { echo "debian/upstream-sha256 is not for $(V); run ./refresh-upstream $(V)" >&2; exit 1; }
+
+override_dh_auto_install:
+	install -d $(D)/usr/bin $(D)/usr/lib/claude-code $(D)/usr/share/claude-code
+	install -m 0755 debian/claude.stub $(D)/usr/lib/claude-code/claude
+	install -m 0644 debian/upstream-sha256 $(D)/usr/share/claude-code/upstream-sha256
+	echo $(V) > $(D)/usr/share/claude-code/version
+	chmod 0644 $(D)/usr/share/claude-code/version
+	ln -s ../lib/claude-code/claude $(D)/usr/bin/claude
