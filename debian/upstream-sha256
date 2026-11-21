@@ -1,4 +1,4 @@
-# Claude Code 2.1.311, from https://downloads.claude.ai/claude-code-releases.
+# Claude Code 2.1.323, from https://downloads.claude.ai/claude-code-releases.
 # Written by ./refresh-upstream; one line per platform this package
 # installs on:
 #
@@ -9,5 +9,5 @@
 # that against the third. Anthropic's own installer truncates the same
 # way, so the compressed stream is not assumed to end where the binary
 # does.
-linux-x64 293776752 86dc1fcc69498159eaf15f446613e847010f9036bfbbdffd4c49350be8489ada d0c00b80761f3030f34cf0812266f6c6f8210ff9af7242f7c6c76c5600499caf
-linux-arm64 293658808 2e2496c9a8065df93acb0fca2d341f59a6b8777649b2e025ab8c9bcd5eef61f3 0b6291903c4dde17f456c8a8799a3101877321bd667aa78e793dc1fe0709893c
+linux-x64 362435088 604d29a6869409106b6a1110bdadcc8b72e8654a5a865d23258f938a696e348e d5f85ac4e9b7ca95e6bbeeeaf05af7c20ff62ddd2a0f49b1f4a0699c30ab0686
+linux-arm64 362210744 452dddff140b5caf00a5410333a3d6db82c73ea2dec74b1541fae18e97d47dca fe84a70e49198b4489aeadbe08cdbfb6a01abf2ca0d8dfe861d5f933e4e1516b
