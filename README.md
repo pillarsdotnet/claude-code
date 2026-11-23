@@ -26,12 +26,12 @@ So the package carries the digests and nothing else, and its `postinst`
 downloads the release from Anthropic's own service onto the machine being
 installed, exactly as the upstream installer would:
 
-| | |
-|---|---|
-| `/usr/share/claude-code/version` | the release to fetch |
-| `/usr/share/claude-code/upstream-sha256` | its `SHA-256`, per platform |
-| `/usr/lib/claude-code/claude` | a stub, overwritten by the download |
-| `/usr/bin/claude` | symlink to the above |
+|                                          |                                     |
+| ---------------------------------------- | ----------------------------------- |
+| `/usr/share/claude-code/version`         | the release to fetch                |
+| `/usr/share/claude-code/upstream-sha256` | its `SHA-256`, per platform         |
+| `/usr/lib/claude-code/claude`            | a stub, overwritten by the download |
+| `/usr/bin/claude`                        | symlink to the above                |
 
 The built package is about 5 KB. The compressed download is 104 MB against
 294 MB for the bare binary, so the `postinst` fetches `claude.zst`,
@@ -110,7 +110,7 @@ daily on the fleet but its `Allowed-Origins` lists only Ubuntu's own
 origins, so the registry is not among them. To have hosts follow the
 registry without being asked:
 
-```
+```conf
 // /etc/apt/apt.conf.d/51unattended-upgrades-forgejo
 Unattended-Upgrade::Allowed-Origins {
         "Forgejo on homelab:${distro_codename}";
